@@ -2,14 +2,13 @@ import win32api
 import ctypes
 import time
 import win32gui
-from PyQt5.QtWidgets import QApplication,QWidget
-from PyQt5.QtGui import *
+from PyQt5.QtWidgets import QApplication
 import sys
 import cv2
 import numpy as np
 
 hwnd_title = dict()
-# Programid = 67716
+
 # 匹配小跳棋的模板
 temp1 = cv2.imread('temp_player2.jpg', 0)
 w1, h1 = temp1.shape[::-1]
@@ -19,13 +18,13 @@ w2, h2 = temp_end.shape[::-1]
 
 
 def press(x, y, button=1):
-    buttonAction = 2 ** ((2 * button) - 1)
-    win32api.mouse_event(buttonAction, x, y)
+    buttonaction = 2 ** ((2 * button) - 1)
+    win32api.mouse_event(buttonaction, x, y)
 
 
 def release(x, y, button=1):
-    buttonAction = 2 ** (2 * button)
-    win32api.mouse_event(buttonAction, x, y)
+    buttonaction = 2 ** (2 * button)
+    win32api.mouse_event(buttonaction, x, y)
 
 
 def move(x, y):
@@ -48,14 +47,14 @@ def get_pos():
     return point.x, point.y
 
 
-def get_all_hwnd(hwnd,mouse):
+def get_all_hwnd(hwnd, mouse):
     if win32gui.IsWindow(hwnd) and win32gui.IsWindowEnabled(hwnd) and win32gui.IsWindowVisible(hwnd):
-       hwnd_title.update({hwnd:win32gui.GetWindowText(hwnd)})
+       hwnd_title.update({hwnd: win32gui.GetWindowText(hwnd)})
 
 
 # 截取跳一跳小程序的当前图像
-def get_screenshot(id):
-    hwnd = id
+def get_screenshot(programid):
+    hwnd = programid
     app = QApplication(sys.argv)
     screen = QApplication.primaryScreen()
     img = screen.grabWindow(hwnd).toImage()
@@ -63,13 +62,13 @@ def get_screenshot(id):
 
 
 # 根据距离计算鼠标按下时间
-def jump(distance):
-    press_time = distance * 0.00318
+def jump(distances):
+    press_time = distances * 0.00318
     move(237, 813)
     press(237, 813, 1)
     time.sleep(press_time)
     release(237, 813, 1)
-    print('Press Time:',press_time)
+    print('Press Time:', press_time)
 
 
 # 利用边缘检测的结果寻找物块的上沿和下沿 进而计算物块的中心点
@@ -89,30 +88,33 @@ def get_center(img_canny, ):
 
 # 检测小人位置,并计算下个盒子的中心位置
 def detect_player():
-    img_rgb = cv2.imread('last.png',0)
+    img_rgb = cv2.imread('last.png', 0)
     img_match = img_rgb.copy()
     res1 = cv2.matchTemplate(img_rgb, temp1, cv2.TM_CCOEFF_NORMED)
     min_val1, max_val1, min_loc1, max_loc1 = cv2.minMaxLoc(res1)
     top_left = max_loc1
     bottom_right = (top_left[0] + w1, top_left[1] + h1)
-    centerloc1 = (int((top_left[0]+bottom_right[0])/2),int((top_left[1]+bottom_right[1])/2)+43)
+    centerloc1 = (int((top_left[0]+bottom_right[0])/2), int((top_left[1]+bottom_right[1])/2)+43)
     cv2.rectangle(img_match, top_left, bottom_right, (0, 0, 255), 2)
-    cv2.circle(img_match,centerloc1,2,(255,0,0),2)
+    cv2.circle(img_match, centerloc1, 2, (255, 0, 0), 2)
     # 边缘检测
     img_rgb = cv2.GaussianBlur(img_rgb, (5, 5), 0)
     canny_img = cv2.Canny(img_rgb, 1, 10)
+    for k in range(max_loc1[1], max_loc1[1] + h1):
+        for b in range(max_loc1[0], max_loc1[0] + w1):
+            canny_img[k][b] = 0
     img_rgb, x_center, y_center = get_center(canny_img)
     cv2.circle(img_match, (x_center, y_center), 10, 255, -1)
-    cv2.imwrite('matched result.jpg',img_match)
+    cv2.imwrite('matched result.jpg', img_match)
     # cv2.imshow('canny',img_match)
     # cv2.waitKey(0)
     return centerloc1[0], centerloc1[1], x_center, y_center
 
 
 # 计算跳跃距离， 单位：像素
-def cal_distance(player_x,player_y,jump_x,jump_y):
-    distance = ((jump_x - player_x)** 2 + (jump_y - player_y)** 2)** 0.5
-    return distance
+def cal_distance(player_x1, player_y1, jump_x1, jump_y1):
+    distances = ((jump_x1 - player_x1) ** 2 + (jump_y1 - player_y1) ** 2) ** 0.5
+    return distances
 
 
 # 检测游戏是否结束
@@ -121,17 +123,17 @@ def check_fail():
     res_end = cv2.matchTemplate(img_end, temp_end, cv2.TM_CCOEFF_NORMED)
     min_val1, max_val1, min_loc1, max_loc1 = cv2.minMaxLoc(res_end)
     Threshold = 0.8
-    if max_val1 >= Threshold :
+    if max_val1 >= Threshold:
         print('游戏结束')
         return False
-    else :
+    else:
         return True
 
 
 # 获取 跳一跳 程序 id
 def get_jumpid():
     win32gui.EnumWindows(get_all_hwnd, 0)
-    for h,t in hwnd_title.items():
+    for h, t in hwnd_title.items():
         if t == "跳一跳":
             print(h, t)
             return h
@@ -145,11 +147,9 @@ for i in range(1000):
     if check_fail():
         get_screenshot(Program_id)
         player_x, player_y, jump_x, jump_y = detect_player()
-        distance = cal_distance(player_x,player_y,jump_x,jump_y)
+        distance = cal_distance(player_x, player_y, jump_x, jump_y)
         print('Distance:', distance)
         jump(distance)
         time.sleep(3)
     else:
         break
-
-
