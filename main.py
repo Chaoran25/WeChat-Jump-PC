@@ -71,7 +71,7 @@ def jump(distances):
     press(237, 813, 1)
     time.sleep(press_time)
     release(237, 813, 1)
-    print('Press Time:', press_time)
+    print('Press Time: %.3f' % press_time)
 
 
 # 利用边缘检测的结果寻找物块的上沿和下沿 进而计算物块的中心点
@@ -164,9 +164,9 @@ for i in range(1000):
     if check_fail():
         player_x, player_y, jump_x, jump_y = detect_player()
         distance = cal_distance(player_x, player_y, jump_x, jump_y)
-        print('Distance:', distance)
+        print('Distance: %.3f' % float(distance))
         jump(distance)
-        time.sleep(3)
+        time.sleep(3.2)
     else:
         print(i, ' Jumps.')
         break
