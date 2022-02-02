@@ -16,6 +16,9 @@ w1, h1 = temp1.shape[::-1]
 temp_end = cv2.imread('temp_end.jpg', 0)
 w2, h2 = temp_end.shape[::-1]
 
+img_music = cv2.imread('music.jpg', 0)
+w3, h3 = img_music.shape[::-1]
+
 
 def press(x, y, button=1):
     buttonaction = 2 ** ((2 * button) - 1)
@@ -49,7 +52,7 @@ def get_pos():
 
 def get_all_hwnd(hwnd, mouse):
     if win32gui.IsWindow(hwnd) and win32gui.IsWindowEnabled(hwnd) and win32gui.IsWindowVisible(hwnd):
-       hwnd_title.update({hwnd: win32gui.GetWindowText(hwnd)})
+        hwnd_title.update({hwnd: win32gui.GetWindowText(hwnd)})
 
 
 # 截取跳一跳小程序的当前图像
@@ -76,7 +79,7 @@ def get_center(img_canny, ):
     y_top = np.nonzero([max(row) for row in img_canny[200:]])[0][0] + 200
     x_top = int(np.mean(np.nonzero(img_canny[y_top])))
     H, W = img_canny.shape
-    y_bottom = y_top + 50
+    y_bottom = y_top + 20
     for row in range(y_bottom, H):
         if img_canny[row, x_top] != 0:
             y_bottom = row
@@ -84,6 +87,17 @@ def get_center(img_canny, ):
 
     x_center, y_center = x_top, (y_top + y_bottom) // 2
     return img_canny, x_center, y_center
+
+
+def eliminate_music(img_test):
+    img_result = cv2.matchTemplate(img_test, img_music, cv2.TM_CCOEFF_NORMED)
+    threshold = 0.7
+    locs = np.where(img_result >= threshold)
+    for pt in zip(*locs[::-1]):
+        for j in range(pt[0], pt[0] + w3 + 2):
+            for k in range(pt[1], pt[1] + h3 + 2):
+                img_test[k][j] = img_test[pt[0]][pt[1]]
+    return img_test
 
 
 # 检测小人位置,并计算下个盒子的中心位置
@@ -94,20 +108,24 @@ def detect_player():
     min_val1, max_val1, min_loc1, max_loc1 = cv2.minMaxLoc(res1)
     top_left = max_loc1
     bottom_right = (top_left[0] + w1, top_left[1] + h1)
-    centerloc1 = (int((top_left[0]+bottom_right[0])/2), int((top_left[1]+bottom_right[1])/2)+43)
+    centerloc1 = (int((top_left[0] + bottom_right[0]) / 2), int((top_left[1] + bottom_right[1]) / 2) + 43)
+    # loc = eliminate_music(img_rgb)
+    img_rgb = eliminate_music(img_rgb)
+    cv2.imwrite('eliminate.jpg', img_rgb)
     cv2.rectangle(img_match, top_left, bottom_right, (0, 0, 255), 2)
     cv2.circle(img_match, centerloc1, 2, (255, 0, 0), 2)
     # 边缘检测
     img_rgb = cv2.GaussianBlur(img_rgb, (5, 5), 0)
     canny_img = cv2.Canny(img_rgb, 1, 10)
+    cv2.imwrite('canny3.jpg', canny_img)
+    # 消除player的轮廓
     for k in range(max_loc1[1], max_loc1[1] + h1):
         for b in range(max_loc1[0], max_loc1[0] + w1):
             canny_img[k][b] = 0
     img_rgb, x_center, y_center = get_center(canny_img)
+    cv2.imwrite('Canny image.jpg', canny_img)
     cv2.circle(img_match, (x_center, y_center), 10, 255, -1)
     cv2.imwrite('matched result.jpg', img_match)
-    # cv2.imshow('canny',img_match)
-    # cv2.waitKey(0)
     return centerloc1[0], centerloc1[1], x_center, y_center
 
 
@@ -140,16 +158,15 @@ def get_jumpid():
 
 
 Program_id = get_jumpid()
-# # 截取 跳一跳 当前图像
-get_screenshot(Program_id)
 # Main: 跳跃
 for i in range(1000):
+    get_screenshot(Program_id)
     if check_fail():
-        get_screenshot(Program_id)
         player_x, player_y, jump_x, jump_y = detect_player()
         distance = cal_distance(player_x, player_y, jump_x, jump_y)
         print('Distance:', distance)
         jump(distance)
         time.sleep(3)
     else:
+        print(i, ' Jumps.')
         break
